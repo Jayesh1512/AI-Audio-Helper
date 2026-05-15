@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
-import { config, getGeminiApiKey } from './config'
+import { getGeminiApiKey } from './config'
 
 let genAI: GoogleGenerativeAI | null = null
 

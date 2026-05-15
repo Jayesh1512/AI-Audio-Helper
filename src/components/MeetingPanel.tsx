@@ -3,6 +3,8 @@ import type { MeetingSummary, ListeningMode } from '../lib/types'
 type Props = {
   meetings: MeetingSummary[]
   mode: ListeningMode
+  liveTranscript: string
+  interimTranscript: string
   onStartMeeting: () => void
   onEndMeeting: () => void
 }
@@ -12,7 +14,7 @@ function formatDuration(start: Date, end: Date) {
   return `${diff}m`
 }
 
-export function MeetingPanel({ meetings, mode, onStartMeeting, onEndMeeting }: Props) {
+export function MeetingPanel({ meetings, mode, liveTranscript, interimTranscript, onStartMeeting, onEndMeeting }: Props) {
   const inMeeting = mode === 'meeting'
 
   return (
@@ -34,22 +36,33 @@ export function MeetingPanel({ meetings, mode, onStartMeeting, onEndMeeting }: P
         </button>
       </div>
 
-      {/* Active meeting indicator */}
+      {/* Active meeting indicator + live transcript */}
       {inMeeting && (
         <div
-          className="flex items-center gap-2 px-4 py-2 border-b fade-in"
-          style={{ borderColor: 'var(--border)', backgroundColor: 'var(--muted)' }}
+          className="flex flex-col gap-2 px-4 py-3 border-b fade-in overflow-y-auto"
+          style={{ borderColor: 'var(--border)', backgroundColor: 'var(--muted)', maxHeight: '60%' }}
         >
-          <div className="relative">
-            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--foreground)' }} />
-            <div
-              className="absolute inset-0 w-2 h-2 rounded-full pulse-ring"
-              style={{ backgroundColor: 'var(--foreground)' }}
-            />
+          <div className="flex items-center gap-2">
+            <div className="relative flex-shrink-0">
+              <div className="w-2 h-2 rounded-full" style={{ backgroundColor: 'var(--foreground)' }} />
+              <div
+                className="absolute inset-0 w-2 h-2 rounded-full pulse-ring"
+                style={{ backgroundColor: 'var(--foreground)' }}
+              />
+            </div>
+            <span className="font-mono text-sm" style={{ color: 'var(--muted-foreground)' }}>
+              recording — say "end meeting" to stop
+            </span>
           </div>
-          <span className="font-mono text-sm" style={{ color: 'var(--muted-foreground)' }}>
-            recording — say "end meeting" to stop
-          </span>
+
+          {(liveTranscript || interimTranscript) && (
+            <p className="text-sm leading-relaxed" style={{ color: 'var(--foreground)' }}>
+              {liveTranscript}
+              {interimTranscript && (
+                <span style={{ color: 'var(--muted-foreground)' }}>{liveTranscript ? ' ' : ''}{interimTranscript}</span>
+              )}
+            </p>
+          )}
         </div>
       )}
 

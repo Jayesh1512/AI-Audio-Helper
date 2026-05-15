@@ -5,6 +5,8 @@ import { TodoPanel } from './components/TodoPanel'
 import { SchedulePanel } from './components/SchedulePanel'
 import { MeetingPanel } from './components/MeetingPanel'
 import { StatusBar } from './components/StatusBar'
+import { MeetingSummaryModal } from './components/MeetingSummaryModal'
+import type { MeetingSummary } from './lib/types'
 import { useVoice } from './hooks/useVoice'
 import { useTodos, useSchedule, useMeetings } from './lib/store'
 import { extractScheduleInfo } from './lib/smartRoute'
@@ -24,6 +26,7 @@ export default function App() {
   const [llmOnline, setLlmOnline] = useState(false)
   const [gcalConnected, setGcalConnected] = useState(false)
   const [lastAction, setLastAction] = useState('')
+  const [summaryModal, setSummaryModal] = useState<MeetingSummary | null>(null)
 
   const { todos, addTodo, toggleTodo, deleteTodo } = useTodos()
   const { events, addEvent, removeEvent } = useSchedule()
@@ -122,7 +125,7 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [smartAddTodo, addEvent, gcalConnected])
 
-  const { mode, transcript, interimTranscript, volume, startListening, stopListening, startMeeting, endMeeting } = useVoice({
+  const { mode, transcript, interimTranscript, liveTranscript, volume, startListening, stopListening, startMeeting, endMeeting } = useVoice({
     onIntent: handleIntent,
   })
 
@@ -157,13 +160,16 @@ export default function App() {
       } catch { /* use raw transcript snippet */ }
     }
 
-    addMeeting({
+    const meeting: MeetingSummary = {
+      id: Math.random().toString(36).slice(2, 10),
       startedAt: new Date(Date.now() - 60000),
       endedAt: new Date(),
       transcript: fullTranscript,
       summary,
       speakers: ['You'],
-    })
+    }
+    addMeeting(meeting)
+    setSummaryModal(meeting)
     setLastAction('meeting summary saved')
   }, [endMeeting, addMeeting])
 
@@ -270,6 +276,8 @@ export default function App() {
           <MeetingPanel
             meetings={meetings}
             mode={mode}
+            liveTranscript={liveTranscript}
+            interimTranscript={interimTranscript}
             onStartMeeting={startMeeting}
             onEndMeeting={handleEndMeeting}
           />
@@ -277,6 +285,10 @@ export default function App() {
       </main>
 
       <StatusBar llmOnline={llmOnline} gcalConnected={gcalConnected} lastAction={lastAction} />
+
+      {summaryModal && (
+        <MeetingSummaryModal meeting={summaryModal} onClose={() => setSummaryModal(null)} />
+      )}
     </div>
   )
 }

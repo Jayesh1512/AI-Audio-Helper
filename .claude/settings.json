@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"const d = require\\('./node_modules/@deepgram/sdk/dist/main/index.js'\\); console.log\\(Object.keys\\(d\\).filter\\(k => k.toLowerCase\\(\\).includes\\('live'\\) || k.toLowerCase\\(\\).includes\\('client'\\) || k.toLowerCase\\(\\).includes\\('create'\\)\\)\\)\")",
+      "Bash(node -e \"import\\('@deepgram/sdk'\\).then\\(d => console.log\\(Object.keys\\(d\\)\\)\\)\")",
+      "Bash(node -e \"import\\('@deepgram/sdk'\\).then\\(d => { console.log\\('listen:', typeof d.listen\\); console.log\\('Deepgram:', typeof d.Deepgram\\); console.log\\('DeepgramClient:', typeof d.DeepgramClient\\) }\\)\")",
+      "Bash(node -e \"import\\('@deepgram/sdk'\\).then\\(d => { const c = new d.DeepgramClient\\('dummy'\\); console.log\\(Object.keys\\(c\\)\\); const lc = c.listen; console.log\\('listen keys:', Object.keys\\(lc\\)\\) }\\)\")",
+      "Bash(node -e \"import\\('@deepgram/sdk'\\).then\\(d => { const c = new d.DeepgramClient\\('dummy'\\); const proto = Object.getOwnPropertyNames\\(Object.getPrototypeOf\\(c\\)\\); console.log\\('client proto:', proto\\); const listenProto = Object.getOwnPropertyNames\\(Object.getPrototypeOf\\(c.listen\\)\\); console.log\\('listen proto:', listenProto\\) }\\)\")",
+      "Bash(node -e \"import\\('@deepgram/sdk'\\).then\\(d => { const c = new d.DeepgramClient\\('dummy'\\); const v1 = c.listen.v1\\(\\); console.log\\('v1 proto:', Object.getOwnPropertyNames\\(Object.getPrototypeOf\\(v1\\)\\)\\) }\\)\")"
+    ]
+  }
+}

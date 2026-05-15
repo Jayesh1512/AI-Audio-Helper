@@ -54,14 +54,22 @@ export function useVoice({ onIntent }: UseVoiceOptions) {
   const [mode, setMode] = useState<ListeningMode>('idle')
   const [transcript, setTranscript] = useState('')
   const [interimTranscript, setInterimTranscript] = useState('')
+  const [liveTranscript, setLiveTranscript] = useState('')
   const [volume, setVolume] = useState(0)
 
+  const modeRef = useRef<ListeningMode>('idle')
   const recognitionRef = useRef<ISpeechRecognition | null>(null)
   const deepgramRef = useRef<DeepgramSpeechService | null>(null)
-  const meetingBufferRef = useRef<string[]>([])
+  const meetingBufferRef = useRef<string[] | null>(null)
   const analyserRef = useRef<AnalyserNode | null>(null)
   const animFrameRef = useRef<number>(0)
   const isListeningRef = useRef(false)
+
+  // Keep modeRef in sync so async callbacks always read the current mode
+  const updateMode = useCallback((m: ListeningMode) => {
+    modeRef.current = m
+    setMode(m)
+  }, [])
 
   // Volume meter via Web Audio API
   const startVolumeMeter = useCallback(async () => {
@@ -144,26 +152,32 @@ Reply with JSON only: {"type":"ADD_TODO","text":"..."} or {"type":"SCHEDULE_EVEN
           if (isFinal && transcript.trim()) {
             setTranscript(transcript.trim())
             setInterimTranscript('')
-            // Buffer during meeting
-            if (meetingBufferRef.current !== null && mode === 'meeting') {
+            // Buffer during meeting — skip the stop command itself
+            const isMeetingStop = MEETING_END_KEYWORDS.some(k => transcript.trim().toLowerCase().includes(k))
+            if (meetingBufferRef.current !== null && !isMeetingStop) {
               meetingBufferRef.current.push(transcript.trim())
+              setLiveTranscript(prev => prev ? prev + ' ' + transcript.trim() : transcript.trim())
             }
-            setMode('processing')
+            const wasInMeeting = modeRef.current === 'meeting'
+            updateMode('processing')
             classifyIntent(transcript.trim()).then(intent => {
               onIntent(intent, transcript.trim())
-              setMode(mode === 'meeting' ? 'meeting' : 'listening')
+              // Only restore mode if onIntent didn't already change it (e.g. MEETING_END)
+              if (modeRef.current === 'processing') {
+                updateMode(wasInMeeting ? 'meeting' : 'listening')
+              }
             })
           }
         },
         (error) => {
           console.error('Deepgram error:', error)
-          setMode('idle')
+          updateMode('idle')
         }
       )
       deepgramRef.current = deepgram
       deepgram.startListening()
       isListeningRef.current = true
-      setMode('listening')
+      updateMode('listening')
       startVolumeMeter()
     } else {
       // Use Web Speech API
@@ -178,7 +192,7 @@ Reply with JSON only: {"type":"ADD_TODO","text":"..."} or {"type":"SCHEDULE_EVEN
 
       recognition.onstart = () => {
         isListeningRef.current = true
-        setMode('listening')
+        updateMode('listening')
       }
 
       recognition.onresult = async (event: SpeechRecognitionEvent) => {
@@ -200,15 +214,21 @@ Reply with JSON only: {"type":"ADD_TODO","text":"..."} or {"type":"SCHEDULE_EVEN
           setTranscript(final.trim())
           setInterimTranscript('')
 
-          // Buffer during meeting
-          if (meetingBufferRef.current !== null && mode === 'meeting') {
+          // Buffer during meeting — skip the stop command itself
+          const isMeetingStop = MEETING_END_KEYWORDS.some(k => final.trim().toLowerCase().includes(k))
+          if (meetingBufferRef.current !== null && !isMeetingStop) {
             meetingBufferRef.current.push(final.trim())
+            setLiveTranscript(prev => prev ? prev + ' ' + final.trim() : final.trim())
           }
 
-          setMode('processing')
+          const wasInMeeting = modeRef.current === 'meeting'
+          updateMode('processing')
           const intent = await classifyIntent(final.trim())
           onIntent(intent, final.trim())
-          setMode(mode === 'meeting' ? 'meeting' : 'listening')
+          // Only restore mode if onIntent didn't already change it (e.g. MEETING_END)
+          if (modeRef.current === 'processing') {
+            updateMode(wasInMeeting ? 'meeting' : 'listening')
+          }
         }
       }
 
@@ -227,7 +247,7 @@ Reply with JSON only: {"type":"ADD_TODO","text":"..."} or {"type":"SCHEDULE_EVEN
       recognition.start()
       startVolumeMeter()
     }
-  }, [mode, classifyIntent, onIntent, startVolumeMeter])
+  }, [classifyIntent, onIntent, startVolumeMeter, updateMode])
 
   const stopListening = useCallback(() => {
     isListeningRef.current = false
@@ -240,21 +260,22 @@ Reply with JSON only: {"type":"ADD_TODO","text":"..."} or {"type":"SCHEDULE_EVEN
       deepgramRef.current = null
     }
     cancelAnimationFrame(animFrameRef.current)
-    setMode('idle')
+    updateMode('idle')
     setVolume(0)
-  }, [])
+  }, [updateMode])
 
   const startMeeting = useCallback(() => {
     meetingBufferRef.current = []
-    setMode('meeting')
-  }, [])
+    setLiveTranscript('')
+    updateMode('meeting')
+  }, [updateMode])
 
   const endMeeting = useCallback(() => {
-    const buffer = meetingBufferRef.current
-    meetingBufferRef.current = []
-    setMode('listening')
+    const buffer = meetingBufferRef.current ?? []
+    meetingBufferRef.current = null
+    updateMode('listening')
     return buffer.join(' ')
-  }, [])
+  }, [updateMode])
 
   useEffect(() => {
     return () => {
@@ -269,6 +290,7 @@ Reply with JSON only: {"type":"ADD_TODO","text":"..."} or {"type":"SCHEDULE_EVEN
     mode,
     transcript,
     interimTranscript,
+    liveTranscript,
     volume,
     startListening,
     stopListening,
